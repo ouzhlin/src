@@ -4,8 +4,8 @@ FILE: 	 JOFileMgr.cpp
 AUTHOR:  James Ou 
 *********************************************************************/
 
-//#include "zlib/zlib.h"
-#include <zlib.h>
+
+#include "zlib.h"
 #include "manager/JOFileMgr.h"
 #include "manager/vo/JOFileCacheVO.h"
 #include "manager/JOCachePoolMgr.h"
@@ -21,6 +21,7 @@ AUTHOR:  James Ou
 #include <fstream>
 
 #if _WIN32
+
 #include <Windows.h>
 #include <ShlObj.h>
 //#include <regex>
