@@ -544,7 +544,7 @@ long long JOString::toLongLong( const char* str )
 	return 0;
 }
 
-sophia_framework::string JOString::data2String(const char* pData, unsigned int len)
+std::string JOString::data2String(const unsigned char* pData, unsigned int len)
 {
 	const unsigned int desSize = len * 2 + len / 4 + 2;
 	char* des = new char[desSize];
@@ -558,7 +558,7 @@ sophia_framework::string JOString::data2String(const char* pData, unsigned int l
 	std::string desc = "<";
 	desc.append(des);
 	desc.append(">");
-	delete des;
+	//delete des;
 	return desc;
 }
 

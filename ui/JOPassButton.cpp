@@ -28,10 +28,10 @@ JOPassButton::~JOPassButton()
 	JOSnMgr::Instance()->dispose(m_sn);
 }
 
-JOPassButton* JOPassButton::create(const std::string& key, const std::string& passKey, BUTTON_CALL call, bool bScale /*= false*/, const std::string& title /*= nullptr*/)
+JOPassButton* JOPassButton::create(const std::string& key, const std::string& passKey, BUTTON_CALL call, const std::string& title /*= nullptr*/)
 {
 	JOPassButton* spr = new (std::nothrow) JOPassButton();
-	if (spr && spr->init(key, call, bScale, title)){
+	if (spr && spr->init(key, call, title)){
 		spr->setPassImgKey(passKey);
 		spr->autorelease();
 		return spr;

@@ -117,41 +117,21 @@ const unsigned char* JOData::bytes()
     return m_pData;
 }
 
-// Adjusting Capacity
-void JOData::increaseLength(unsigned int extraLen)
-{
-	setLength(m_nTotalLength+extraLen);
-}
-
 void JOData::setLength(unsigned int length)
 {
-	if (length == m_nTotalLength)
-	{
-		return;
-	}
-
 	if (length <= 0)
 	{
-		JO_SAFE_DELETE_ARRAY(m_pData);
-		m_pData = NULL;
 		m_nLength = 0;
-		m_nTotalLength = 0;
 		return;
 	}
-
-	m_nTotalLength = length;
-	unsigned char* newBuffer = new unsigned char[m_nTotalLength];
-	if (length < m_nLength)
-	{
-		memcpy(newBuffer,m_pData, length);
-		m_nLength = length;
+	if (length > m_nTotalLength){
+		m_nTotalLength = getBlockSize(length);
+		unsigned char* newBuffer = new unsigned char[m_nTotalLength];
+		memcpy(newBuffer, m_pData, length);
+		JO_SAFE_DELETE_ARRAY(m_pData);
+		m_pData = newBuffer;
 	}
-	else 
-	{
-		memcpy(newBuffer,m_pData, m_nLength);
-	}
-	JO_SAFE_DELETE_ARRAY(m_pData);
-	m_pData = newBuffer;
+	m_nLength = length;
 }
 
 // Adding Data
@@ -161,18 +141,24 @@ void JOData::appendBytes(const unsigned char *pBytes, unsigned int size)
 	{		
 		LOG_ERROR("JOData","append size should not <= 0");		
 		return;
-	}	
-	if (m_nLength + size > m_nTotalLength)
+	}
+
+	unsigned int tmpSize = m_nLength + size;
+	if (tmpSize > m_nTotalLength)
 	{
 		unsigned int tempSize = (m_nLength + size) - m_nTotalLength;
-		tempSize = getBlockSize(tempSize);
-		increaseLength(tempSize);
+		m_nTotalLength = getBlockSize(tmpSize);
+		unsigned char* newBuffer = new unsigned char[m_nTotalLength];
+		
+		memcpy(newBuffer, m_pData, m_nLength);		
+		JO_SAFE_DELETE_ARRAY(m_pData);
+		m_pData = newBuffer;
 	}
 	if (pBytes)
 		memcpy(this->m_pData + m_nLength, pBytes, size);
 	else
 		memcpy(this->m_pData + m_nLength, 0, size);
-	m_nLength = m_nLength + size;
+	m_nLength = tmpSize;
 }
 
 void JOData::appendData(JOData* data)
@@ -182,17 +168,16 @@ void JOData::appendData(JOData* data)
 
 void JOData::insertBytes(const unsigned char* pBytes, unsigned int size, unsigned int begin /*= 0*/)
 {
-    if (pBytes == NULL || size <= 0)
+    if (pBytes == nullptr || size <= 0)
     {
         LOG_ERROR("JOData","insert bytes should not be NULL");
         return;
     }
-
-	if (m_nLength + size > m_nTotalLength)
+	unsigned int tmpSize = m_nLength + size;
+	if (tmpSize > m_nTotalLength)
 	{
-		unsigned int tempSize = (m_nLength + size) - m_nTotalLength;
-		tempSize = getBlockSize(tempSize);
-		m_nTotalLength = m_nTotalLength + tempSize;
+		m_nTotalLength = getBlockSize(tmpSize);
+	
 		unsigned char* newBuffer = new unsigned char[m_nTotalLength];
 		if (begin>0)
 			memcpy(newBuffer, m_pData, begin);
@@ -207,36 +192,34 @@ void JOData::insertBytes(const unsigned char* pBytes, unsigned int size, unsigne
 		memmove(m_pData + begin, pBytes, size);
 	}
 	
-    m_nLength = m_nLength+size;
+    m_nLength = tmpSize;
 }
 // Modifying Data
-void JOData::replaceBytesInRange(unsigned int begin, unsigned int end, void* pBytes, unsigned int size)
+void JOData::replaceBytesInRange(int begin, int end, void* pBytes, unsigned int size)
 {
 	
-	if (begin < 0 || end <= 0 || begin - end >= 0 || begin-m_nLength >= 0)
+	if (begin < 0 || end <= 0 || begin >= end || begin>=m_nLength)
 	{
 		LOG_ERROR("JOData"," replaceBytesInRange invalid range!");
 		return;
 	}
 
-	unsigned int e = end;
-	if (m_nLength < e)
+	if (m_nLength < end)
 	{
-		e = m_nLength;
+		end = m_nLength;
 	}
 	
-	if (pBytes == NULL && size == 0)
+	if (pBytes == nullptr && size == 0)
 	{
-		memcpy(this->m_pData+begin,0,e-begin);
+		memcpy(this->m_pData + begin, 0, end - begin);
 	}
 	else
 	{
-		unsigned int s = e-begin;
+		unsigned int s = end - begin;
 		if (s > size)
 		{
 			s = size;
 		}
-
 		memcpy(this->m_pData+begin,pBytes,s);
 	}
 }
@@ -245,17 +228,17 @@ void JOData::resetBytes(unsigned int begin, unsigned int end)
 {
 	if (end >= m_nLength)
 	{
-		this->replaceBytesInRange(begin, m_nLength, NULL, 0);
+		this->replaceBytesInRange(begin, m_nLength, nullptr, 0);
 	}
 	else
 	{
-		this->replaceBytesInRange(begin,end,NULL,0);
+		this->replaceBytesInRange(begin,end,nullptr,0);
 	}
 }
 
 std::string JOData::description()
 {
-	return JOString::data2String((const char*)m_pData, m_nLength);
+	return JOString::data2String(m_pData, m_nLength);
 	/*
     const unsigned int desSize = m_nLength*2+m_nLength/4+2;
     char* des = new char[desSize];
@@ -289,7 +272,7 @@ void JOData::getBytes(void* buffer, unsigned int len)
 
 bool JOData::isEqualToData(JOData* data)
 {
-	if (length() != data->length())
+	if (m_nLength != data->length())
 	{
 		return false;
 	}

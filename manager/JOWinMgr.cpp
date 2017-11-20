@@ -12,7 +12,6 @@ JOWinMgr::JOWinMgr()
 , m_sn(0)
 , m_curScene(nullptr)
 , m_curHome(nullptr)
-, m_curWait(nullptr)
 {
 	m_sn = JOSnMgr::Instance()->getSn();
 }
@@ -46,6 +45,7 @@ void JOWinMgr::init(Scene* s /*= nullptr*/)
 		m_layerMap[i] = layer;
 		m_root->addChild(layer, i);
 		JOUILayout::Instance()->relativePos(layer, m_root);
+		m_winZorderMap[i] = 1;
 	}
 	EventListenerKeyboard* listener = EventListenerKeyboard::create();
 	listener->onKeyReleased = [](EventKeyboard::KeyCode kcode, Event* pEvent){
@@ -63,6 +63,7 @@ void JOWinMgr::init(Scene* s /*= nullptr*/)
 	
 	if (m_grayBgLayer == nullptr){
 		m_grayBgLayer = LayerColor::create(Color4B(0, 0, 0, 150), visibleSize.width * 10, visibleSize.height * 10);
+		m_grayBgLayer->setAnchorPoint(Point(0.5f, 0.5f));
 		m_grayBgLayer->retain();
 	}
 	else{
@@ -70,19 +71,13 @@ void JOWinMgr::init(Scene* s /*= nullptr*/)
 	}
 }
 
-void JOWinMgr::tick()
-{
-	if (m_grayDirty){
-		__refreshGrayBg();
-	}
-}
 
 Node* JOWinMgr::getLayer(int layerTag)
 {
 	return m_layerMap[layerTag];
 }
 
-void JOWinMgr::showWin(Node* win, int layerTag)
+void JOWinMgr::showWin(Node* win, int layerTag, bool isCenter/* = true*/)
 {
 	if (win == nullptr){
 		return;
@@ -96,6 +91,7 @@ void JOWinMgr::showWin(Node* win, int layerTag)
 		LOG_ERROR("JOWinMgr", "layer Tag [%d] no base layer in it!!!!", layerTag);
 		return;
 	}
+	win->setGrayBackgroundCall(JO_CBACK_1(JOWinMgr::_refreshGrayBg, this));
 	switch (layerTag)
 	{
 	case JOWinMgr::SCENE:
@@ -149,30 +145,6 @@ void JOWinMgr::showWin(Node* win, int layerTag)
 		});
 		return;
 		break;
-	case JOWinMgr::TIPS:
-		_refreshGrayBg(win);
-		win->addExitCall(m_sn, [=](Node* sender){
-			_refreshGrayBg(sender);
-		});
-		break;
-	case JOWinMgr::GUIDE:
-		_refreshGrayBg(win);
-		win->addExitCall(m_sn, [=](Node* sender){
-			_refreshGrayBg(sender);
-		});
-		break;
-	case JOWinMgr::WAIT:
-		if (m_curWait == win){
-			return;
-		}
-		clear(layerTag);
-		m_curWait = win;
-		_refreshGrayBg(win);
-		win->addExitCall(m_sn, [=](Node* sender){
-			_refreshGrayBg(sender);
-			m_curWait = nullptr;
-		});
-		break;
 	case JOWinMgr::NOTICE:
 		break;
 	case JOWinMgr::DEBUG_L:
@@ -187,12 +159,22 @@ void JOWinMgr::showWin(Node* win, int layerTag)
 			m_debugWait = nullptr;
 		});
 		break;
+	case JOWinMgr::TIPS:
+	case JOWinMgr::GUIDE:
+	case JOWinMgr::WAIT:
+		_refreshGrayBg(win);
+		win->addExitCall(m_sn, JO_CBACK_1(JOWinMgr::_refreshGrayBg, this));
+		break;
+	
 	default:
 		break;
 	}
-	layer->addChild(win);
-	JOUILayout::Instance()->relativePos(win, layer);	
-	
+	unsigned long long winZoder = m_winZorderMap[layerTag];
+	layer->addChild(win, winZoder);
+	m_winZorderMap[layerTag] = winZoder+2;
+	if (isCenter){
+		JOUILayout::Instance()->relativePos(win, layer);
+	}
 }
 
 
@@ -207,9 +189,10 @@ void JOWinMgr::clear(int layerTag)
 {
 	Node* layer = m_layerMap[layerTag];
 	if (layer == nullptr){
-		LOG_WARN("JOWinMgr", "layer Tag [%d] no base layer in it!!!!", layerTag);
+		//LOG_WARN("JOWinMgr", "layer Tag [%d] no base layer in it!!!!", layerTag);
 		return;
 	}
+	m_winZorderMap[layerTag] = 1;
 	switch (layerTag)
 	{
 	case JOWinMgr::SCENE:
@@ -240,7 +223,6 @@ void JOWinMgr::clear(int layerTag)
 		m_grayDirty = true;
 		break;
 	case JOWinMgr::WAIT:
-		m_curWait = nullptr;
 		m_grayDirty = true;
 		break;
 	case JOWinMgr::NOTICE:
@@ -272,8 +254,10 @@ void JOWinMgr::removeWin(Node* win)
 {
 	if (win){
 		m_logicWinList.remove(win);
-		win->removeExitCall(m_sn);
+		win->retain();
 		win->removeFromParent();
+		win->removeExitCall(m_sn);
+		win->release();
 	}	
 }
 
@@ -287,8 +271,8 @@ void JOWinMgr::removeAlert(Node* win)
 {
 	if (win){
 		m_alertWinList.remove(win);
-		win->removeExitCall(m_sn);
 		win->removeFromParent();
+		win->removeExitCall(m_sn);
 		win->release();
 	}
 }
@@ -303,18 +287,20 @@ void JOWinMgr::removeTopAlert()
 
 void JOWinMgr::_refreshGrayBg(Node* win)
 {
-	if (win && win->isGrayBackgroundEnable()){
-		m_grayDirty = true;
+	if (win){
+		if (win->isGrayBackgroundEnable() || win->getParent()==m_grayBgLayer->getParent()){
+			m_grayDirty = true;
+			return;
+		}
 	}
-	else{
-		m_grayDirty = false;
-	}
+	m_grayDirty = false;
 }
 
 void JOWinMgr::__refreshGrayBg()
 {
 	m_grayDirty = false;
 	m_grayBgLayer->setVisible(false);
+	m_grayBgLayer->removeFromParent();
 	Node* layer = nullptr;
 	Node* node = nullptr;
 	Vector<Node*> children;
@@ -323,21 +309,38 @@ void JOWinMgr::__refreshGrayBg()
 		layer = m_layerMap[i];
 		if (layer){
 			children = layer->getChildren();
+			if (children.empty())
+			{
+				m_winZorderMap[i] = 1;
+			}
 			Vector<Node*>::reverse_iterator itr = children.rbegin();
 			while (itr != children.rend()){
 				node = *itr;
 				if (node && node->isGrayBackgroundEnable())	{
+					/*
 					if (m_grayBgLayer->getParent() != node){
 						m_grayBgLayer->removeFromParent();
 						node->addChild(m_grayBgLayer, -999);
-						JOUILayout::Instance()->relativePos(m_grayBgLayer, node);
 					}
+					JOUILayout::Instance()->relativePos(m_grayBgLayer, node);
+					*/
+					layer->addChild(m_grayBgLayer, node->getZOrder()-1);
+					JOUILayout::Instance()->relativePos(m_grayBgLayer, layer);
 					m_grayBgLayer->setVisible(true);
 					return;
 				}
 				++itr;
 			}
 		}
+	}
+}
+
+
+void JOWinMgr::tick()
+{
+	if (m_grayDirty)
+	{
+		__refreshGrayBg();
 	}
 }
 
@@ -372,7 +375,7 @@ void JOWinMgr::reg(unsigned int key, Node* win)
 {
 	WIN_MAP::iterator itr = m_winMap.find(key);
 	if (itr != m_winMap.end()){
-		LOG_ERROR("JOWinMgr", "key [%d] is alread reg!!!!");
+		LOG_ERROR("JOWinMgr", "key [%d] is already reg!!!!");
 		return;
 	}
 	m_winMap[key] = win;

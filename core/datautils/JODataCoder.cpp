@@ -37,10 +37,8 @@ void JODataCoder::init(unsigned int opOccupyLen, unsigned int allOccupyLen)
 	m_opOccupyLen = opOccupyLen;
 	m_allOccupyLen = allOccupyLen;
 	unsigned int oLen = opOccupyLen + allOccupyLen;
-	if (m_pData->capacity()<oLen){
-		m_pData->setLength(oLen);
-		m_pData->appendBytes(nullptr, oLen);
-	}
+
+	m_pData->setLength(oLen);	
 
 	m_pReadPointer = (unsigned char*)m_pData->bytes() + oLen;
 	m_uReadPos = m_pData->length() - oLen;
@@ -58,10 +56,7 @@ void JODataCoder::init(unsigned char* bytes, unsigned int len, unsigned int opOc
 	m_opOccupyLen = opOccupyLen;
 	m_allOccupyLen = allOccupyLen;
 	unsigned int oLen = opOccupyLen + allOccupyLen;
-	if (m_pData->capacity() < oLen){
-		m_pData->setLength(oLen);
-		m_pData->appendBytes(nullptr, oLen);
-	}
+	m_pData->setLength(oLen);
 
 	m_pData->appendBytes(bytes, len);
 	m_pReadPointer = (unsigned char*)m_pData->bytes() + oLen;
@@ -289,18 +284,23 @@ void JODataCoder::writeLLong(long long l)
 void JODataCoder::writeString(const std::string& str)
 {
 	static unsigned short s_maxUS = -1;
+
 	unsigned int byteSize = str.length();
-	if (byteSize>s_maxUS){
-		LOG_WARN("JODataCoder", "string too [%s]", str.c_str());
-		LOG_WARN("JODataCoder", "string too long over unsigned short %d", s_maxUS);
-		byteSize = s_maxUS;
+	if (byteSize > 0){
+		if (byteSize > s_maxUS){
+			LOG_WARN("JODataCoder", "string too [%s]", str.c_str());
+			LOG_WARN("JODataCoder", "string too long over unsigned short %d", s_maxUS);
+			byteSize = s_maxUS;
+		}
+
+		writeShort(byteSize);
+		m_pData->appendBytes((const unsigned char*)str.c_str(), byteSize);
+		m_uReadPos += byteSize;
 	}
-	
-	unsigned char buff[2];
-	JODataUtils::dataFormUnsignedShort(byteSize, buff, m_bBigEndian);
-	m_pData->appendBytes(buff, 2);
-	m_pData->appendBytes((const unsigned char*)str.c_str(), byteSize);
-	m_uReadPos += byteSize + 2;
+	else{
+		writeShort(0);
+		//LOG_WARN("JODataCoder", "is empty string !!!");
+	}
 	/*
 	unsigned char* c = new unsigned char[byteSize+2];
 	//JODataUtils::dataFormUnsignedInt(byteSize, c, m_bBigEndian);
@@ -339,13 +339,13 @@ JOData* JODataCoder::netPack()
 {
 	unsigned char buff[2];
 	if (m_allOccupyLen>0)
-	{
-		JODataUtils::dataFormUnsignedShort(m_pData->length(), buff, m_bBigEndian);
+	{//-2为去掉长度的占位
+		JODataUtils::dataFormUnsignedShort(m_pData->length()-2, buff, m_bBigEndian);
 		m_pData->replaceBytesInRange(0, 2, buff, 2);
 	}
 	if (m_opOccupyLen>0)
 	{
-		JODataUtils::dataFormUnsignedShort(m_op, buff, m_bBigEndian);
+		JODataUtils::dataFormShort(m_op, buff, m_bBigEndian);
 		m_pData->replaceBytesInRange(2, 4, buff, 2);
 	}
 	else{
@@ -358,9 +358,9 @@ std::string JODataCoder::description()
 {
 	unsigned int oLen = m_opOccupyLen+m_allOccupyLen;
 	if (m_op){
-		return JOString::formatString("op=%d data=%s", m_op, JOString::data2String((const char*)m_pData->bytes() + oLen, m_pData->length() - oLen).c_str());
+		return JOString::formatString("op=%d data=%s", m_op, JOString::data2String(m_pData->bytes() + oLen, m_pData->length() - oLen).c_str());
 	}
-	return JOString::data2String((const char*)m_pData->bytes() + oLen, m_pData->length() - oLen);
+	return JOString::data2String(m_pData->bytes() + oLen, m_pData->length() - oLen);
 }
 
 unsigned int JODataCoder::length()

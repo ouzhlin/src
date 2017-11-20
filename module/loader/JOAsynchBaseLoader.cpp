@@ -89,7 +89,7 @@ void JOAsynchBaseLoader::_load(JOAsynchLoaderVO* vo)
 }
 
 
-bool JOAsynchBaseLoader::_loadVo(const std::string srcPath, short resType, CompLeteCall loadCompleteCall, LUA_FUNCTION luaCompleteCall, JODataCoder* dataCoder, unsigned short idx, unsigned short total)
+bool JOAsynchBaseLoader::_loadVo(const std::string& srcPath, short resType, CompLeteCall loadCompleteCall, LUA_FUNCTION luaCompleteCall, JODataCoder* dataCoder, unsigned short idx, unsigned short total)
 {
 	if (srcPath.empty() || srcPath.length() < 1){
 		LOG_WARN("JOAsynchBaseLoader", "srcPath empty!!!!!");
@@ -127,7 +127,7 @@ bool JOAsynchBaseLoader::_loadVo(const std::string srcPath, short resType, CompL
 
 
 
-void JOAsynchBaseLoader::load(unsigned int sn, const std::string srcPath, short resType, const CompLeteCall loadCompleteCall, JODataCoder* dataCoder /*= nullptr*/, Texture2D::PixelFormat pixel /*= Texture2D::PixelFormat::NONE*/)
+void JOAsynchBaseLoader::load(unsigned int sn, const std::string& srcPath, short resType, const CompLeteCall loadCompleteCall, JODataCoder* dataCoder /*= nullptr*/, Texture2D::PixelFormat pixel /*= Texture2D::PixelFormat::NONE*/)
 {
 	if (_loadVo(srcPath, resType, loadCompleteCall, -1, dataCoder, 1, 1)){
 		JOAsynchLoaderVO* vo = POOL_GET(JOAsynchLoaderVO, "JOAsynchBaseLoader");

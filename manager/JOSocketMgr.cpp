@@ -19,7 +19,6 @@ NS_JOFW_BEGIN
 
 JOSocketMgr::JOSocketMgr()
 : m_mainSocketId(1)
-, m_bBigEndian(false)
 , m_bDebug(false)
 {
 
@@ -28,11 +27,6 @@ JOSocketMgr::JOSocketMgr()
 JOSocketMgr::~JOSocketMgr()
 {
 	_disconnectAll();
-}
-
-void JOSocketMgr::setBigEndian(bool bigEndian)
-{
-	m_bBigEndian = bigEndian;
 }
 
 void JOSocketMgr::initMainSocketId(int id)
@@ -45,7 +39,7 @@ void JOSocketMgr::initMainSocketId(int id)
 	m_mainSocketId = id;
 }
 
-void JOSocketMgr::connect(const char* ip, unsigned int port, bool beAsyn, int socketId /*= -1*/)
+void JOSocketMgr::connect(std::string& ip, unsigned int port, bool beAsyn, bool isBigEndian, int socketId /*= -1*/)
 {
 	JOSocket* st = _getSocket(socketId);
 	if (st)
@@ -56,6 +50,7 @@ void JOSocketMgr::connect(const char* ip, unsigned int port, bool beAsyn, int so
 			disconnect(socketId);
 			st = _getSocket(socketId);
 		}
+		st->setBigEndian(isBigEndian);
 		st->connect(ip, port, beAsyn);
 	}
 }
@@ -65,9 +60,8 @@ bool JOSocketMgr::disconnect(int socketId /*= -1*/)
 	JOSocket* st = _findSocket(socketId);
 	if (st)
 	{
-		st->setDelegate(NULL);		
-		st->disconnect();
-		st->clearBuffer();		
+		st->setDelegate(nullptr);		
+		st->disconnect();	
 		POOL_RECOVER(st, JOSocket, "JOSocketMgr");
 		socket_map.erase(socketId);
 		//st->setDelegate(this);
@@ -82,9 +76,9 @@ void JOSocketMgr::_disconnectAll()
 	SOCKET_MAP::iterator itr = socket_map.begin();
 	while (itr != socket_map.end())
 	{
-		itr->second->setDelegate(NULL);
+		itr->second->setDelegate(nullptr);
 		itr->second->disconnect();
-		itr->second->clearBuffer();
+		//itr->second->clearBuffer();
 		POOL_RECOVER(itr->second, JOSocket, "JOSocketMgr");
 		++itr;
 	}
@@ -145,29 +139,33 @@ void JOSocketMgr::onSocketWillConnect(JOSocket* socket)
 
 void JOSocketMgr::onSocketConnected(JOSocket* socket, const char* ip, unsigned int port)
 {
-
+	JOEventDispatcher::Instance()->dispatchEvent(SOCKET_EVENT_CONNECT);
 }
 
 void JOSocketMgr::onSocketConnectFail(JOSocket* socket)
 {
-
+	JOEventDispatcher::Instance()->dispatchEvent(SOCKET_EVENT_CONNECT_FAIL);
 }
 
 void JOSocketMgr::onSocketDidDisconnected(JOSocket* socket)
 {
-
+	JOEventDispatcher::Instance()->dispatchEvent(SOCKET_EVENT_DISCONNECT);
 }
 
 void JOSocketMgr::onSocketDidReadData(JOSocket* socket, JODataCoder* dataCoder)
 {
 	if (dataCoder) {
 		if (m_bDebug){		
-			LOG_INFO("JONetwork", "\nrecv: op = %d\nlen: = %d\ndata = %s", dataCoder->getOp(), dataCoder->length(), dataCoder->description().c_str());
+			LOG_INFO("JOSocketMgr", "\nrecv: op = %d\nlen: = %d\ndata = %s", dataCoder->getOp(), dataCoder->length(), dataCoder->description().c_str());
 		}
+		JODataCoder* coder = JODataPool::Instance()->getDataCoder();
+		coder->putShort(dataCoder->getOp());
 		JOEventDispatcher::Instance()->g2cAction(dataCoder, socket->getSocketId());
+		JOEventDispatcher::Instance()->dispatchEvent(SOCKET_EVENT_RECV_OP, coder);
+
 	}
 	else{
-		LOG_ERROR("JONetwork", "message == NULL");
+		LOG_ERROR("JOSocketMgr", "message == NULL");
 	}
 }
 
@@ -178,40 +176,6 @@ struct NetPacketHeader
 	short wOpcode; // -10 ~ 10
 };
 */
-//在其他线程下被调用
-
-JODataCoder* JOSocketMgr::onSocketDidReadPartialData(JOSocket* socket, unsigned char* pData, unsigned int size, unsigned int* len)
-{
-	//unsigned int headLen = sizeof(NetPacketHeader);
-	//while (size >= headLen && pData)
-	//{
-		NetPacketHeader* pHead = (NetPacketHeader*)(pData);
-		unsigned int nPacketSize = 0;
-		if (m_bBigEndian)
-		{
-			nPacketSize = NET2HOST_16(pHead->wDataSize);
-		}
-		else
-		{
-			nPacketSize = pHead->wDataSize;
-		}
-		unsigned int sizeOccupy = sizeof(pHead->wDataSize);
-		*len = sizeOccupy + nPacketSize;
-		if (size < *len)
-		{
-			LOG_ERROR("JOSocketMgr", "net data pack len error !!!");
-			len = 0;
-			return nullptr;
-		}
-		
-		unsigned int op = JODataUtils::unsignedShortFormData(pData + sizeOccupy, m_bBigEndian);
-		JODataCoder* dataCoder = JODataPool::Instance()->getDataCoder(true, m_bBigEndian, true);
-
-		dataCoder->setOp(op);
-		dataCoder->init(pData + sizeOccupy + 2, nPacketSize - 2);
-		return dataCoder;
-	//}
-}
 
 void JOSocketMgr::onSocketDidWriteData(JOSocket* socket)
 {

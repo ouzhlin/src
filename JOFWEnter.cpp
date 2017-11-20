@@ -113,6 +113,7 @@ void JOFWEnter::_regPoolVO()
 	POOL_REG(JOFrameAnimationVO);
 
 	POOL_REG(JOResRecordVO);
+	POOL_REG(TickFunctInThreadVO);
 	POOL_REG(JOTickVO);
 	POOL_REG(JOFileCacheVO);
 	POOL_REG(JOUILayoutVO);

@@ -123,6 +123,15 @@ bool JOFrameAnimationCache::getAnimationsWithAniKey(const std::string& aniKey, s
     return false;
 }
 
+bool JOFrameAnimationCache::haveAnimationsWithAniKey(const std::string& aniKey)
+{
+	std::unordered_map<std::string, JOFrameAnimationVO*>::iterator itr = m_aniMap.find(aniKey);
+	if (itr != m_aniMap.end()){
+		return true;
+	}
+	return false;
+}
+
 void JOFrameAnimationCache::tick()
 {
     static float interval = 0;

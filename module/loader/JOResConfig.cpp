@@ -81,7 +81,7 @@ bool JOResConfig::addSrcKey(const std::string& imgKey, const std::string& basePa
 	return true;
 }
 
-bool JOResConfig::loadSrcConfig(const std::string& fPath, const std::string& basePath)
+bool JOResConfig::loadSrcConfig(const std::string& fPath, const std::string& basePath, const std::string& keyname)
 {
 	JOData* data = JOFileMgr::Instance()->getFileData(fPath);
 	if (data == nullptr){
@@ -90,6 +90,24 @@ bool JOResConfig::loadSrcConfig(const std::string& fPath, const std::string& bas
 	JODataCoder* dc = JODataPool::Instance()->getDataCoder();
 	dc->init((unsigned char*)data->bytes(), data->length());
 
+	BACK_INDEX::iterator backItr = m_back_srcMap.find(keyname);
+	if (backItr == m_back_srcMap.end()){
+		std::vector<std::string> vec;
+		m_back_srcMap[keyname] = vec;
+	}
+	backItr = m_back_plistMap.find(keyname);
+	if (backItr == m_back_plistMap.end()){
+		std::vector<std::string> vec;
+		m_back_plistMap[keyname] = vec;
+	}
+	backItr = m_back_keyMap.find(keyname);
+	if (backItr == m_back_keyMap.end()){
+		std::vector<std::string> vec;
+		m_back_keyMap[keyname] = vec;
+	}
+	std::vector<std::string> srcVec = m_back_srcMap[keyname];
+	std::vector<std::string> plistVec = m_back_plistMap[keyname];
+	std::vector<std::string> keyVec = m_back_keyMap[keyname];
 	bool ret = true;
 	do 
 	{
@@ -122,6 +140,7 @@ bool JOResConfig::loadSrcConfig(const std::string& fPath, const std::string& bas
 				JOResSrcVO* vo = POOL_GET(JOResSrcVO, "JOResConfig");
 				vo->setData(srcPath, srcKey, basePath, pfVal);
 				m_src_srcMap[srcKey] = vo;
+				srcVec.push_back(srcKey);
 			}
 		}
 		/************************************************************************/
@@ -157,6 +176,8 @@ bool JOResConfig::loadSrcConfig(const std::string& fPath, const std::string& bas
 				vo->setData(srcPath, srcKey, basePath, pfVal, plistPath);
 				m_src_srcMap[srcKey] = vo;
 				m_plist_srcMap[plistKey] = vo;
+				srcVec.push_back(srcKey);
+				plistVec.push_back(plistKey);
 			}
 		}
 
@@ -180,11 +201,54 @@ bool JOResConfig::loadSrcConfig(const std::string& fPath, const std::string& bas
 				break;
 			}
 			m_key_srcMap[imgKey] = srcItr->second;
+			keyVec.push_back(imgKey);
 		}
 	} while (0);
 	
 	JODataPool::Instance()->recover(dc);
+	if (ret==false)
+	{
+		removeConfig(keyname);
+	}
 	return ret;
+}
+
+void JOResConfig::removeConfig(const std::string& keyname)
+{
+	std::vector<std::string>::iterator vecItr;
+	BACK_INDEX::iterator backItr = m_back_srcMap.find(keyname);
+	if (backItr != m_back_srcMap.end()){
+		std::vector<std::string> vec = backItr->second;
+		vecItr = vec.begin();
+		while (vecItr != vec.end())
+		{
+			m_src_srcMap.erase((*vecItr));
+			vecItr++;
+		}
+	}
+	backItr = m_back_plistMap.find(keyname);
+	if (backItr != m_back_plistMap.end()){
+		std::vector<std::string> vec = backItr->second;
+		vecItr = vec.begin();
+		while (vecItr != vec.end())
+		{
+			m_plist_srcMap.erase((*vecItr));
+			vecItr++;
+		}
+	}
+	backItr = m_back_keyMap.find(keyname);
+	if (backItr != m_back_keyMap.end()){
+		std::vector<std::string> vec = backItr->second;
+		vecItr = vec.begin();
+		while (vecItr != vec.end())
+		{
+			m_key_srcMap.erase((*vecItr));
+			vecItr++;
+		}
+	}
+	m_back_srcMap.erase(keyname);
+	m_back_plistMap.erase(keyname);
+	m_back_keyMap.erase(keyname);
 }
 
 const JOResSrcVO* JOResConfig::srcVOWithKey(const std::string& imgKey)
@@ -733,9 +797,32 @@ bool JOResConfig::srcPlistWithAniKey(const std::string& aniKey, std::list<std::s
 
 
 
-void JOResConfig::addAniBasePath(const std::string& aniPath)
+void JOResConfig::addAniBasePath(const std::string& aniPath, const std::string& keyname)
 {
 	m_aniPaths.push_back(aniPath);
+	BACK_INDEX::iterator itr = m_back_aniPathMap.find(keyname);
+	if (itr == m_back_aniPathMap.end()){
+		std::vector<std::string> vec;
+		vec.push_back(aniPath);
+		m_back_aniPathMap[keyname] = vec;
+	}
+	else{
+		itr->second.push_back(aniPath);
+	}
+}
+
+void sophia_framework::JOResConfig::removeAniBasePath(const std::string& keyname)
+{
+	BACK_INDEX::iterator itr = m_back_aniPathMap.find(keyname);
+	if (itr != m_back_aniPathMap.end()){
+		std::vector<std::string> vec = itr->second;
+		std::vector<std::string>::iterator vecItr = vec.begin();
+		while (vecItr != vec.end())
+		{
+			m_aniPaths.remove((*vecItr));
+			vecItr++;
+		}
+	}
 }
 
 JOData* JOResConfig::getAniDataWithAniKey(const std::string& aniKey)
@@ -754,6 +841,7 @@ JOData* JOResConfig::getAniDataWithAniKey(const std::string& aniKey)
 
 void JOResConfig::clearAni()
 {
+	m_back_aniPathMap.clear();
 	m_aniPaths.clear();
 	m_aniMap.clear();
 }

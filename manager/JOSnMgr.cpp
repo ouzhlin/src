@@ -15,8 +15,7 @@ JOSnMgr::~JOSnMgr()
 
 unsigned int JOSnMgr::getSn()
 {
-	if (snDepotList.empty())
-	{
+	if (snDepotList.empty()){
 		++snApplyNum;
 		_createSnCap();
 	}
@@ -29,8 +28,7 @@ unsigned int JOSnMgr::getSn()
 void JOSnMgr::dispose(unsigned int sn)
 {
 	std::unordered_set<unsigned int>::iterator itr = snDepotSet.find(sn);
-	if (itr != snDepotSet.end())
-	{
+	if (itr != snDepotSet.end()){
 		return;
 	}
 	snDepotList.push_back(sn);
@@ -41,6 +39,9 @@ void JOSnMgr::_createSnCap()
 {
 	unsigned int snVal;
 	unsigned int initial = maxSnAmount*snApplyNum;
+	if (initial<1){
+		initial = 0;
+	}
 
 	unsigned int index = 0;
 	while (index < maxSnAmount){

@@ -86,10 +86,10 @@ void JOUILayout::tick()
 		vo = *itr;
 		if (vo->isLoaded())	{
 			vo->exec();
+			s_layoutFlagCnt = 0;
 			vo->done();
 			POOL_RECOVER(vo, JOUILayoutVO, "JOUILayout");
 			itr = m_layoutList.erase(itr);
-            s_layoutFlagCnt=0;
 		}
 		else{
             if(s_layoutFlagCnt>10){

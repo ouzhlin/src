@@ -1,6 +1,5 @@
 #include "ui/JOIImg.h"
 #include "module/loader/JOAsynchQueueLoader.h"
-#include "module/loader/JOAsynchMultLoader.h"
 #include "module/loader/JOResMgr.h"
 #include "module/loader/JOResConfig.h"
 #include "module/loader/vo/JOResConfigVO.h"
@@ -16,8 +15,6 @@ JOIImg::JOIImg()
 , m_imgName("")
 , m_tmpSourcePath("")
 , m_tmpImgName("")
-, m_loadDirty(false)
-, m_loadType(JOAsynchBaseLoader::QUEUE)
 {
 	m_sn = JOSnMgr::Instance()->getSn();
 	m_comLeteCall = JO_CBACK_6(JOIImg::_loadComplete, this);
@@ -55,19 +52,7 @@ void JOIImg::setSource(const std::string& filePath, const std::string& imgName, 
 		return;
 	}
 	if (_isLoading()){
-		if (m_loadDirty){
-			JOAsynchQueueLoader::Instance()->cancelLoad(m_sn);
-			JOAsynchMultLoader::Instance()->cancelLoad(m_sn);
-			m_loadDirty = false;
-		}
-		else{
-			if (m_loadType == JOAsynchBaseLoader::QUEUE)	{
-                JOAsynchQueueLoader::Instance()->cancelLoad(m_sn);
-			}
-			else{
-				JOAsynchMultLoader::Instance()->cancelLoad(m_sn);
-			}
-		}
+		JOAsynchQueueLoader::Instance()->cancelLoad(m_sn);
 	}
     if ( strcmp(m_sourcePath.c_str(), filePath.c_str())!=0 || strcmp(m_imgName.c_str(), imgName.c_str())!=0){
 	//if (m_sourcePath!=filePath || m_imgName != imgName){
@@ -77,12 +62,7 @@ void JOIImg::setSource(const std::string& filePath, const std::string& imgName, 
 		
 		// 异步加载
 		if (isAsyn)	{
-			if (m_loadType == JOAsynchBaseLoader::QUEUE)	{
-				JOAsynchQueueLoader::Instance()->load(m_sn, m_tmpSourcePath, JOAsynchBaseLoader::RES_IMG, m_comLeteCall);
-			}
-			else{
-                JOAsynchMultLoader::Instance()->load(m_sn, m_tmpSourcePath, JOAsynchBaseLoader::RES_IMG, m_comLeteCall);
-			}
+			JOAsynchQueueLoader::Instance()->load(m_sn, m_tmpSourcePath, JOAsynchBaseLoader::RES_IMG, m_comLeteCall);
 		}
 		// 即时加载
 		else{
@@ -117,7 +97,6 @@ void JOIImg::_loadComplete(Texture2D* tex, std::string source, short resType, JO
 		LOG_WARN("JOImgInterface", "need [%s]; %s not the need resource!!!!", m_tmpSourcePath.c_str(), source.c_str());
 		return;
 	}
-	m_loadDirty = false;	
 
 	//减去当前资源引用
 	if (m_sourcePath.length() > 0){
@@ -135,19 +114,7 @@ void JOIImg::_loadComplete(Texture2D* tex, std::string source, short resType, JO
 
 void JOIImg::clearSource()
 {
-	if (m_loadDirty){
-		JOAsynchQueueLoader::Instance()->cancelLoad(m_sn);
-		JOAsynchMultLoader::Instance()->cancelLoad(m_sn);
-		m_loadDirty = false;
-	}
-	else{
-		if (m_loadType == JOAsynchBaseLoader::QUEUE)	{
-			JOAsynchQueueLoader::Instance()->cancelLoad(m_sn);
-		}
-		else{
-            JOAsynchMultLoader::Instance()->cancelLoad(m_sn);
-		}
-	}
+	JOAsynchQueueLoader::Instance()->cancelLoad(m_sn);	
 	
 	if (m_sourcePath.length()>0){
 		JOResMgr::Instance()->unQuoteRes(m_sourcePath);
@@ -161,17 +128,6 @@ void JOIImg::clearSource()
 	_emptyTexture();
 }
 
-
-void JOIImg::setLoadType(short loadType)
-{
-	if (m_loadType==loadType){
-		return;
-	}
-	m_loadType = loadType;
-	if (_isLoading() == true){
-		m_loadDirty = true;
-	}
-}
 
 void JOIImg::_clearTmp()
 {

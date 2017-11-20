@@ -51,9 +51,7 @@ void JOButton::setDefaultTitleOutline(short boldsize, Color4B outcolor)
 }
 //////////////////////////////////////////////////////////////////////////
 JOButton::JOButton()
-: m_img(nullptr)
-, m_scaleImg(nullptr)
-, m_call(nullptr)
+: m_call(nullptr)
 , m_bScale(false)
 , m_title(nullptr)
 , m_curState(JOButton::BTN_NOR)
@@ -82,8 +80,7 @@ JOButton::~JOButton()
 {
 	CC_SAFE_RELEASE(m_zoomBegan);
 	CC_SAFE_RELEASE(m_zoomEnd);
-	//CC_SAFE_RELEASE(m_img);
-	//CC_SAFE_RELEASE(m_scaleImg);
+
 	//CC_SAFE_RELEASE(m_title);
 }
 
@@ -91,8 +88,7 @@ JOButton::~JOButton()
 JOButton* JOButton::create(const std::string& key /*= nullptr*/)
 {
 	JOButton* spr = new (std::nothrow) JOButton();
-	if (spr){
-		spr->setKey(key);
+	if (spr && spr->init(key, nullptr)){
 		spr->autorelease();
 		return spr;
 	}
@@ -100,10 +96,10 @@ JOButton* JOButton::create(const std::string& key /*= nullptr*/)
 	return nullptr;
 }
 
-JOButton* JOButton::create(const std::string& key, BUTTON_CALL call, bool bScale/*=false*/, const std::string& title /*= nullptr*/)
+JOButton* JOButton::create(const std::string& key, BUTTON_CALL call, const std::string& title /*= nullptr*/)
 {
 	JOButton* spr = new (std::nothrow) JOButton();
-	if (spr && spr->init(key, call, bScale, title)){
+	if (spr && spr->init(key, call, title)){
 		spr->autorelease();
 		return spr;
 	}
@@ -111,10 +107,9 @@ JOButton* JOButton::create(const std::string& key, BUTTON_CALL call, bool bScale
 	return nullptr;
 }
 
-bool JOButton::init(const std::string& key, BUTTON_CALL call, bool bScale /*= false*/, const std::string& title /*= nullptr*/)
+bool JOButton::init(const std::string& key, BUTTON_CALL call, const std::string& title /*= nullptr*/)
 {
 	setAnchorPoint(Point(0.5f, 0.5f));
-	m_bScale = bScale;
 	m_call = call;
 	setKey(key);
 	setTitle(title);
@@ -169,7 +164,9 @@ void JOButton::setTitle(const std::string& title)
 		if (m_title == nullptr)	{
 			m_title = JOLabel::create(title, s_fsize, s_fcolor, s_falias);
 			m_title->setOutline(s_boldsize, s_outcolor);
+			m_title->setAnchorPoint(Point(0.5f, 0.5f));
 			addChild(m_title, 10);
+			JOUILayout::Instance()->relativePos(m_title, this);
 		}
 		else{
 			m_title->setString(title);
@@ -181,20 +178,20 @@ void JOButton::setTitle(const std::string& title)
 			m_title->setVisible(false);
 		}
 	}
-	_layout();
 }
 
 void JOButton::setTitleArg(const std::string& fName, short fSize, Color3B fColor /*= Color3B::WHITE*/, short blodSize /*= 0*/, Color4B outColor /*= Color4B::WHITE*/)
 {
 	if (m_title == nullptr)	{
 		m_title = JOLabel::create("", fSize, fColor, fName);
+		m_title->setAnchorPoint(Point(0.5f, 0.5f));
 		addChild(m_title, 10);
+		JOUILayout::Instance()->relativePos(m_title, this);
 	}
 	else{
 		m_title->init(m_title->getString(), fSize, fColor, fName);
 	}	
 	m_title->setOutline(blodSize, outColor);
-	_layout();
 }
 
 std::string JOButton::getTitleString()
@@ -250,14 +247,6 @@ void JOButton::setZoomMode(short zoomMode)
 }
 
 //////////////////////////////////////////////////////////////////////////
-void JOButton::setContentSize(const Size& contentSize)
-{
-	Node::setContentSize(contentSize);
-	if (m_bScale && m_scaleImg){
-		m_scaleImg->setContentSize(contentSize);
-	}
-	_layout();
-}
 
 bool JOButton::onTouchBegan(Touch *pTouch, Event *pEvent)
 {
@@ -334,18 +323,6 @@ void JOButton::onTouchCancelled(Touch *pTouch, Event *pEvent)
 	*/
 }
 //////////////////////////////////////////////////////////////////////////
-void JOButton::_layout()
-{
-	if (m_scaleImg){
-		JOUILayout::Instance()->relativePos(m_scaleImg, this);
-	}
-	if (m_img){
-		JOUILayout::Instance()->relativePos(m_img, this);
-	}
-	if (m_title){
-		JOUILayout::Instance()->relativePos(m_title, this);
-	}
-}
 
 void JOButton::setOtherStateKey(const std::string& selKey, const std::string& disKey)
 {
@@ -412,83 +389,16 @@ void JOButton::_setKey(std::string& key)
 		return;
 	}
 	m_curKey = key;
-	if (m_scaleImg){
-		m_scaleImg->setVisible(false);
-	}
-	if (m_img){
-		m_img->setVisible(false);
-	}
-	if (m_bScale){
-		if (m_scaleImg == nullptr){
-			m_scaleImg = JOScale9Sprite::create();
-			addChild(m_scaleImg, 1);
-		}
-		m_scaleImg->setVisible(true);
-		m_scaleImg->setKey(m_curKey,false);
-		if (getContentSize().equals(Size::ZERO)){
-			Node::setContentSize(m_scaleImg->getContentSize());
-		}
-		else{
-			m_scaleImg->setContentSize(getContentSize());
-		}
-	}
-	else{
-		if (m_img == nullptr){
-			m_img = JOSprite::create();
-			addChild(m_img, 1);
-		}
-		m_img->setVisible(true);
-		m_img->setKey(m_curKey,false);
-		if (getContentSize().equals(Size::ZERO)){
-			Node::setContentSize(m_img->getContentSize());
-		}
-	}
-	_layout();
+	JOScale9Sprite::setKey(m_curKey, false);
 }
 
 void JOButton::_setShader(const std::string& key, bool bRestore, std::function<void(Node*, cocos2d::GLProgramState*)> setValCall)
 {
-	if (m_scaleImg){
-		m_scaleImg->setVisible(false);
-	}
-	if (m_img){
-		m_img->setVisible(false);
-	}
-	Node* tmpShaderNode = nullptr;
-	Size tmpSize = getContentSize();
-	if (m_bScale){
-		if (m_scaleImg == nullptr){
-			m_scaleImg = JOScale9Sprite::create();
-			addChild(m_scaleImg, 1);
-			m_scaleImg->setKey(m_curKey, false);
-		}
-		m_scaleImg->setVisible(true);		
-		if (tmpSize.equals(Size::ZERO)){
-			Node::setContentSize(m_scaleImg->getContentSize());
-		}
-		else{
-			m_scaleImg->setContentSize(tmpSize);
-		}
-		tmpShaderNode = m_scaleImg;
-	}
-	else{
-		if (m_img == nullptr){
-			m_img = JOSprite::create();
-			addChild(m_img, 1);
-			m_img->setKey(m_curKey, false);
-		}
-		m_img->setVisible(true);		
-		if (tmpSize.equals(Size::ZERO)){
-			Node::setContentSize(m_img->getContentSize());
-		}
-		tmpShaderNode = m_img;
-	}
-	_layout();
 	if (!key.empty()){
-		JOShaderMgr::Instance()->shader(tmpShaderNode, key.c_str(), setValCall);
+		JOShaderMgr::Instance()->shader(this, key.c_str(), setValCall);
 	}
 	else if (bRestore){
-		JOShaderMgr::Instance()->restore(tmpShaderNode);
+		JOShaderMgr::Instance()->restore(this);
 	}
 }
 

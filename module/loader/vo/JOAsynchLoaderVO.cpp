@@ -21,7 +21,7 @@ USING_NS_CC;
 
 NS_JOFW_BEGIN
 
-void JOAsynchLoaderVO::asynchExecLuaCall(int luaHandle, cocos2d::Texture2D* tex, std::string source, int resType, JODataCoder* dataCoder, unsigned int index, unsigned int totalCount)
+void JOAsynchLoaderVO::asynchExecLuaCall(int luaHandle, cocos2d::Texture2D* tex, std::string& source, int resType, JODataCoder* dataCoder, unsigned int index, unsigned int totalCount)
 {
 	auto engine = LuaEngine::getInstance();
 	LuaStack *stack = engine->getLuaStack();
@@ -94,7 +94,7 @@ void JOAsynchLoaderVO::init()
 }
 
 
-void JOAsynchLoaderVO::setData(const std::string src, int resType, Texture2D::PixelFormat pixel, int luaHandle, JODataCoder* dataCoder, unsigned int sn, unsigned int totalCount/* = 1*/)
+void JOAsynchLoaderVO::setData(const std::string& src, int resType, Texture2D::PixelFormat pixel, int luaHandle, JODataCoder* dataCoder, unsigned int sn, unsigned int totalCount/* = 1*/)
 {
 	source = src;	
 	baseFileName = JOPath::getFileWithoutSuffix(source);
@@ -108,7 +108,7 @@ void JOAsynchLoaderVO::setData(const std::string src, int resType, Texture2D::Pi
 	samePathList.clear();
 }
 
-void JOAsynchLoaderVO::setData(const std::string src, int resType, Texture2D::PixelFormat pixel, CompLeteCall handle, JODataCoder* dataCoder, unsigned int sn, unsigned int totalCount/* = 1*/)
+void JOAsynchLoaderVO::setData(const std::string& src, int resType, Texture2D::PixelFormat pixel, CompLeteCall handle, JODataCoder* dataCoder, unsigned int sn, unsigned int totalCount/* = 1*/)
 {
     //LOG_WARN("JOAsynchLoaderVO", "setData %d", sn);
 	source = src;

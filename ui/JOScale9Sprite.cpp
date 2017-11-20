@@ -9,6 +9,7 @@ NS_JOFW_BEGIN
 JOScale9Sprite::JOScale9Sprite()
 : m_loadCall(nullptr)
 , m_srcSprite(nullptr)
+, m_beFit(true)
 {
 	m_srcSprite = JOSprite::create();
 	m_srcSprite->retain();
@@ -113,11 +114,13 @@ void JOScale9Sprite::_loadEnd()
 		setSpriteFrame(m_srcSprite->getSpriteFrame());
 	}
 	
-	if (!orgSize.equals(Size::ZERO)){
-		tmpRect.size = orgSize;
+	if (m_beFit)
+	{
+		if (!orgSize.equals(Size::ZERO)){
+			tmpRect.size = orgSize;
+		}
+		_resetInset(tmpRect);
 	}
-
-	_resetInset(tmpRect);
 
 	//回调处理
 	if (m_loadCall)	{

@@ -37,13 +37,37 @@ void JOTickVO::run()
 	}
 }
 
+
+TickFunctInThreadVO::TickFunctInThreadVO()
+:c_funct(nullptr)
+, beRemove(false)
+, sn(0)
+{
+}
+
+void TickFunctInThreadVO::init()
+{
+	c_funct = nullptr;
+	beRemove = false;
+	sn = 0;
+}
+
+void TickFunctInThreadVO::run()
+{
+	if (c_funct)
+	{
+		c_funct();
+	}
+}
+
+
 //////////////////////////////////////////////////////////////////////////
 
 JOTickMgr::JOTickMgr():
 m_deltaTime(0.0f)
 , m_tickCount(0)
 {
-
+	
 }
 
 JOTickMgr::~JOTickMgr()
@@ -115,11 +139,14 @@ void JOTickMgr::tick( float dt )
 	if (!_functionsToPerform.empty())
 	{
         _performMutex.lock();
-		const auto funct = _functionsToPerform.front();
+		TickFunctInThreadVO* vo = _functionsToPerform.front();
 		_functionsToPerform.pop_front();
 		_performMutex.unlock();
 
-		funct();
+		if (vo){
+			vo->run();
+			POOL_RECOVER(vo, TickFunctInThreadVO, "JOTickMgr");
+		}
 	}
 	
 	/*
@@ -148,10 +175,31 @@ void JOTickMgr::clear()
 	tickMap.clear();
 }
 
-void JOTickMgr::runInMainThread(const std::function<void()> &function)
+void JOTickMgr::runInMainThread(unsigned int sn, const std::function<void()> &function)
 {
 	JOLockGuard tempLock(_performMutex);
-	_functionsToPerform.push_back(function);	
+	TickFunctInThreadVO* vo = POOL_GET(TickFunctInThreadVO, "JOTickMgr");
+	vo->init();
+	vo->c_funct = function;
+	vo->sn = sn;
+	_functionsToPerform.push_back(vo);
+}
+
+void JOTickMgr::cancelInMainRun(unsigned int sn)
+{
+	JOLockGuard tempLock(_performMutex);
+	std::list< TickFunctInThreadVO* >::iterator itr = _functionsToPerform.begin();
+	while (itr != _functionsToPerform.end())
+	{
+		TickFunctInThreadVO* vo = (*itr);
+		if (vo->sn == sn){
+			itr = _functionsToPerform.erase(itr);
+			POOL_RECOVER(vo, TickFunctInThreadVO, "JOTickMgr");
+		}
+		else{
+			itr++;
+		}
+	}
 }
 
 
